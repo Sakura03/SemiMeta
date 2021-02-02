@@ -10,7 +10,6 @@ import nvidia.dali.types as types
 from nvidia.dali.plugin.pytorch import DALIClassificationIterator
 # distributed
 import torch.nn.functional as F
-from torch.distributions import Beta
 import torch.distributed as dist
 from apex.parallel import DistributedDataParallel as DDP
 warnings.filterwarnings("ignore", "(Possibly )?corrupt EXIF data", UserWarning)
@@ -19,7 +18,7 @@ warnings.simplefilter('error')
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N', help='manual epoch number (useful on restarts)')
 parser.add_argument('--print-freq', default=50, type=int, metavar='N', help='print frequency (default: 50)')
-parser.add_argument('-a', '--arch', default='resnet18', type=str, metavar='STR', help='model architecture')
+parser.add_argument('-a', '--arch', default='resnet50', type=str, metavar='STR', help='model architecture')
 parser.add_argument('--data', metavar='DIR', default="./data", help='path to dataset')
 parser.add_argument('--num-classes', default=1000, type=int, metavar='N', help='Number of classes')
 parser.add_argument('-j', '--workers', default=4, type=int, help='number of data loading workers')
@@ -32,8 +31,6 @@ parser.add_argument('--imcrop', default=224, type=int, metavar='N', help='image 
 parser.add_argument('--warmup', default=5, type=int, help="warmup epochs (small lr and do not impose sparsity)")
 parser.add_argument('--gamma', default=0.1, type=float, metavar='GM', help='decrease learning rate by gamma')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M', help='momentum')
-parser.add_argument('--alpha', type=float, default=1., help='Concentration parameter of Beta distribution')
-parser.add_argument('--epsilon', type=float, default=1e-2, help='epsilon for gradient estimation')
 parser.add_argument('--resume', default=None, type=str, metavar='PATH', help='path to the latest checkpoint')
 parser.add_argument('--save-path', default="results/tmp", type=str, help='path to save results')
 # distributed
@@ -41,18 +38,12 @@ parser.add_argument("--local_rank", default=0, type=int)
 parser.add_argument('--dali-cpu', action='store_true', help='Runs CPU based version of DALI pipeline.')
 args = parser.parse_args()
 
-def data_gen(loader):
-    while True:
-        for data in loader:
-            yield data
-        loader.reset()
-
 # DALI pipelines
 class HybridTrainPipe(Pipeline):
-    def __init__(self, batch_size, num_threads, device_id, data_dir, rec_name, crop, dali_cpu=False):
+    def __init__(self, batch_size, num_threads, device_id, data_dir, crop, dali_cpu=False):
         super(HybridTrainPipe, self).__init__(batch_size, num_threads, device_id, seed=12 + device_id)
         # MXnet rec reader
-        self.input = ops.MXNetReader(path=join(data_dir, "%s.rec"%rec_name), index_path=join(data_dir, "%s.idx"%rec_name),
+        self.input = ops.MXNetReader(path=join(data_dir, "train_label.rec"), index_path=join(data_dir, "train_label.idx"),
                                      random_shuffle=True, shard_id=args.local_rank, num_shards=args.world_size)
         #let user decide which pipeline works him bets for RN version he runs
         dali_device = 'cpu' if dali_cpu else 'gpu'
@@ -112,8 +103,6 @@ os.makedirs(args.save_path, exist_ok=True)
 if args.local_rank == 0:
     tfboard_writer = SummaryWriter(log_dir=args.save_path)
     logger = Logger(join(args.save_path, "log.txt"))
-# Build Beta distribution
-beta_distribution = Beta(torch.tensor([args.alpha]), torch.tensor([args.alpha]))
 
 def main():
     if args.local_rank == 0:
@@ -128,23 +117,16 @@ def main():
     # Build DALI dataloader
     pipe = HybridTrainPipe(batch_size=args.batch_size, num_threads=args.workers,
                            device_id=args.local_rank, data_dir=args.data, 
-                           rec_name="train_label", crop=args.imcrop, dali_cpu=args.dali_cpu)
+                           crop=args.imcrop, dali_cpu=args.dali_cpu)
     pipe.build()
-    label_loader = DALIClassificationIterator(pipe, size=int(pipe.epoch_size("Reader") / args.world_size))
-    label_provider = data_gen(label_loader)
+    train_loader = DALIClassificationIterator(pipe, size=int(pipe.epoch_size("Reader") / args.world_size))
 
-    pipe = HybridTrainPipe(batch_size=args.batch_size, num_threads=args.workers,
-                           device_id=args.local_rank, data_dir=args.data, 
-                           rec_name="train_unlabel", crop=args.imcrop, dali_cpu=args.dali_cpu)
-    pipe.build()
-    unlabel_loader = DALIClassificationIterator(pipe, size=int(pipe.epoch_size("Reader") / args.world_size))
-    
     pipe = HybridValPipe(batch_size=50, num_threads=args.workers,
                          device_id=args.local_rank, data_dir=args.data,
                          crop=args.imcrop, size=args.imsize)
     pipe.build()
     val_loader = DALIClassificationIterator(pipe, size=int(pipe.epoch_size("Reader") / args.world_size))
-    unlabel_loader_len = int(np.ceil(unlabel_loader._size/args.batch_size))
+    train_loader_len = int(train_loader._size / args.batch_size)
     
     # Define model and optimizer
     model_name = "torchvision.models.%s(num_classes=%d)" % (args.arch, args.num_classes)
@@ -172,16 +154,16 @@ def main():
             logger.info("=> loaded checkpoint '{}' (epoch {})".format(args.resume, checkpoint['epoch']))    
     else:
         args.start_epoch = 0
-        if args.local_rank == 0: best_acc1 = 0.
+        if args.local_rank == 0: best_acc1 = 0    
     
     # Define learning rate scheduler
-    scheduler = CosAnnealingLR(loader_len=unlabel_loader_len, epochs=args.epochs,
+    scheduler = CosAnnealingLR(loader_len=train_loader_len, epochs=args.epochs,
                                lr_max=args.lr, warmup_epochs=args.warmup,
                                last_epoch=args.start_epoch-1)
     
     for epoch in range(args.start_epoch, args.epochs):
         # Train and evaluate
-        train(label_provider, unlabel_loader, model, optimizer, scheduler, epoch)
+        train(train_loader, model, optimizer, scheduler, epoch)
         acc1, acc5 = validate(val_loader, model)
         
         if args.local_rank == 0:
@@ -203,24 +185,19 @@ def main():
                 'optimizer' : optimizer.state_dict()
                 }, is_best, path=args.save_path, filename="checkpoint.pth")
 
-def train(label_provider, unlabel_loader, model, optimizer, scheduler, epoch):
+def train(train_loader, model, optimizer, scheduler, epoch):
     if args.local_rank == 0:
-        data_times, batch_times, label_losses, unlabel_losses, label_acc1, label_acc5, unlabel_acc1, unlabel_acc5 = \
-                [AverageMeter() for _ in range(8)]
-        unlabel_loader_len = int(np.ceil(unlabel_loader._size/args.batch_size))
+        data_times, batch_times, losses, acc1, acc5 = [AverageMeter() for _ in range(5)]
+        train_loader_len = int(np.ceil(train_loader._size/args.batch_size))
     
     # Switch to train mode
     model.train()
     if args.local_rank == 0:
         end = time.time()
-    for i, data in enumerate(unlabel_loader):
+    for i, data in enumerate(train_loader):
         # Load data and distribute to devices
-        label_data = next(label_provider)
-        label_img = label_data[0]["data"]
-        label_gt = label_data[0]["label"].squeeze().cuda().long()
-        _label_gt = F.one_hot(label_gt, num_classes=args.num_classes).float()
-        unlabel_img = data[0]["data"]
-        unlabel_gt = data[0]["label"].squeeze().cuda().long()
+        image = data[0]["data"]
+        target = data[0]["label"].squeeze().cuda().long()
         if args.local_rank == 0:
             start = time.time()
         
@@ -229,60 +206,9 @@ def train(label_provider, unlabel_loader, model, optimizer, scheduler, epoch):
         for param_group in optimizer.param_groups:
             param_group['lr'] = lr
         
-        ### First-order Approximation ###
-        _concat = lambda xs: torch.cat([x.view(-1) for x in xs])
-        # Evaluation mode
-        model.eval()
-        # Forward label data and perform backward pass
-        label_pred = model(label_img)
-        label_loss = F.cross_entropy(label_pred, label_gt, reduction='mean')
-        dtheta = torch.autograd.grad(label_loss, model.parameters(), only_inputs=True)
-
-        with torch.no_grad():
-            # Compute the unlabel pseudo-gt
-            unlabel_pred = model(unlabel_img)
-            unlabel_pseudo_gt = F.softmax(unlabel_pred, dim=1)
-            # Compute step size for first-order approximation
-            epsilon = args.epsilon / torch.norm(_concat(dtheta))
-            
-            # Forward finite difference
-            for p, g in zip(model.parameters(), dtheta):
-                p.data.add_(epsilon, g)            
-            unlabel_pred_pos = model(unlabel_img)
-            # Backward finite difference
-            for p, g in zip(model.parameters(), dtheta):
-                p.data.sub_(2.*epsilon, g)
-            unlabel_pred_neg = model(unlabel_img)
-            # Resume original params
-            for p, g in zip(model.parameters(), dtheta):
-                p.data.add_(epsilon, g)
-
-            # Compute (approximated) gradients w.r.t pseudo-gt of unlabel data
-            unlabel_grad = F.softmax(unlabel_pred_pos, dim=1) - F.softmax(unlabel_pred_neg, dim=1)
-            unlabel_grad.div_(epsilon)
-            
-            # Update and normalize pseudo-labels
-            unlabel_pseudo_gt.sub_(lr, unlabel_grad)
-            torch.relu_(unlabel_pseudo_gt)
-            sums = torch.sum(unlabel_pseudo_gt, dim=1, keepdim=True)
-            unlabel_pseudo_gt /= torch.where(sums == 0., torch.ones_like(sums), sums)
-
-        # Training mode
-        model.train()
-        
-        # First compute label loss (mix-up augmentation)
-        with torch.no_grad():
-            alpha = beta_distribution.sample((args.batch_size,)).cuda()
-            _alpha = alpha.view(-1, 1, 1, 1)
-            interp_img = (label_img * _alpha + unlabel_img * (1. - _alpha)).detach()
-            interp_pseudo_gt = (_label_gt * alpha + unlabel_pseudo_gt * (1. - alpha)).detach()
-        interp_pred = model(interp_img)
-        label_loss = F.kl_div(F.log_softmax(interp_pred, dim=1), interp_pseudo_gt, reduction='batchmean')
-            
-        # Then compute unlabel loss with `unlabel_pseudo_gt`
-        unlabel_pred = model(unlabel_img)
-        unlabel_loss = torch.norm(F.softmax(unlabel_pred, dim=1)-unlabel_pseudo_gt, p=2, dim=1).pow(2).mean()
-        loss = label_loss + unlabel_loss
+        # Forward training image and compute cross entropy loss
+        prediction = model(image)
+        loss = F.cross_entropy(prediction, target, reduction='mean')
         
         # One SGD step
         optimizer.zero_grad()
@@ -290,53 +216,41 @@ def train(label_provider, unlabel_loader, model, optimizer, scheduler, epoch):
         optimizer.step()
         
         # Compute accuracy
-        label_top1, label_top5 = accuracy(label_pred, label_gt, topk=(1, 5))
-        unlabel_top1, unlabel_top5 = accuracy(unlabel_pred, unlabel_gt, topk=(1, 5))
+        top1, top5 = accuracy(prediction, target, topk=(1, 5))
         
         # Gather tensors from different devices
-        label_loss = reduce_tensor(label_loss)
-        unlabel_loss = reduce_tensor(unlabel_loss)
-        label_top1 = reduce_tensor(label_top1)
-        label_top5 = reduce_tensor(label_top5)
-        unlabel_top1 = reduce_tensor(unlabel_top1)
-        unlabel_top5 = reduce_tensor(unlabel_top5)
+        loss = reduce_tensor(loss)
+        top1 = reduce_tensor(top1)
+        top5 = reduce_tensor(top5)
         
         # Update AverageMeter stats
         if args.local_rank == 0:
             data_times.update(start - end)
             batch_times.update(time.time() - start)
-            label_losses.update(label_loss.item(), label_img.size(0))
-            unlabel_losses.update(unlabel_loss.item(), unlabel_img.size(0))
-            label_acc1.update(label_top1.item(), label_img.size(0))
-            label_acc5.update(label_top5.item(), label_img.size(0))
-            unlabel_acc1.update(unlabel_top1.item(), unlabel_img.size(0))
-            unlabel_acc5.update(unlabel_top5.item(), unlabel_img.size(0))
+            losses.update(loss.item(), image.size(0))
+            acc1.update(top1.item(), image.size(0))
+            acc5.update(top5.item(), image.size(0))
         # torch.cuda.synchronize()
         
         # Log training info
         if i % args.print_freq == 0 and args.local_rank == 0:
-            tfboard_writer.add_scalar("train/learning-rate", lr, epoch*unlabel_loader_len+i)
+            tfboard_writer.add_scalar("train/learning-rate", lr, epoch*train_loader_len+i)
             logger.info('Ep[{0}/{1}] It[{2}/{3}] Bt {batch_time.avg:.3f} Dt {data_time.avg:.3f} '
-                        'Lloss: {llosses.val:.3f} (avg {llosses.avg:.3f}) Uloss: {ulosses.val:.3f} (avg {ulosses.avg:.3f}) '
-                        'Lacc1: {label1.val:.3f} (avg {label1.avg:.3f}) Lacc5: {label5.val:.3f} (avg {label5.avg:.3f}) '
-                        'Uacc1: {unlabel1.val:.3f} (avg {unlabel1.avg:.3f}) Uacc5: {unlabel5.val:.3f} (avg {unlabel5.avg:.3f}) '
-                        'LR: {4:.3E} '.format(
-                                epoch, args.epochs, i, unlabel_loader_len, lr, batch_time=batch_times, data_time=data_times,
-                                llosses=label_losses, ulosses=unlabel_losses, label1=label_acc1, label5=label_acc5,
-                                unlabel1=unlabel_acc1, unlabel5=unlabel_acc5
+                        'Loss {loss.val:.3f} ({loss.avg:.3f}) Acc1 {top1.val:.3f} ({top1.avg:.3f}) '
+                        'Acc5 {top5.val:.3f} ({top5.avg:.3f}) LR {4:.3E}'.format(
+                                epoch, args.epochs, i, train_loader_len, lr,
+                                batch_time=batch_times, data_time=data_times,
+                                loss=losses, top1=acc1, top5=acc5
                                 ))
         if args.local_rank == 0:
             end = time.time()
     
-    # Reset the unlabel loader
-    unlabel_loader.reset()
+    # Reset the training loader
+    train_loader.reset()
     if args.local_rank == 0:
-        tfboard_writer.add_scalar('train/label-loss', label_losses.avg, epoch)
-        tfboard_writer.add_scalar('train/unlabel-loss', unlabel_losses.avg, epoch)
-        tfboard_writer.add_scalar('train/label-acc1', label_acc1.avg, epoch)
-        tfboard_writer.add_scalar('train/label-acc5', label_acc5.avg, epoch)
-        tfboard_writer.add_scalar('train/unlabel-acc1', unlabel_acc1.avg, epoch)
-        tfboard_writer.add_scalar('train/unlabel-acc5', unlabel_acc5.avg, epoch)
+        tfboard_writer.add_scalar('train/loss', losses.avg, epoch)
+        tfboard_writer.add_scalar('train/acc1', acc1.avg, epoch)
+        tfboard_writer.add_scalar('train/acc5', acc5.avg, epoch)
 
 @torch.no_grad()
 def validate(val_loader, model):
@@ -349,7 +263,7 @@ def validate(val_loader, model):
     for i, data in enumerate(val_loader):
         image = data[0]["data"]
         target = data[0]["label"].squeeze().cuda().long()
-        
+       
         # Compute output
         prediction = model(image)
         loss = F.cross_entropy(prediction, target, reduction='mean')

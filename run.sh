@@ -1,17 +1,14 @@
 # Only label data (Baseline)
-# CUDA_VISIBLE_DEVICES=0 python3 train_baseline.py --save_path "results/baseline"
-#
-# Ada-Net
-# CUDA_VISIBLE_DEVICES=0 python3 train_adanet.py --save_path "results/ada-Net"
+# CUDA_VISIBLE_DEVICES=0 python3 train_baseline.py --save_path "your/path/to/save/baseline/results"
 #
 # Meta-learning (Ours)
-CUDA_VISIBLE_DEVICES='1' python3 train_meta.py \
+CUDA_VISIBLE_DEVICES='0' python3 train_meta.py \
         --dataset "cifar100" \
         --num-label "10000" \
-        -a "wrn" \
+        -a "convlarge" \
 	--mix-up \
 	--alpha "1.0" \
-        --save-path "results/cifar100-labels10000-wrn-mile30-35-wd1e-4-weight1.0" \
+        --save-path "your/path/to/save/results" \
         --weight "1.0" \
 	--total-steps "400000" \
         --milestones "[300000, 350000]" \
