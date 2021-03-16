@@ -42,7 +42,7 @@ CUDA_VISIBLE_DEVICES='0,1,2,3,4,5,6,7' python -m torch.distributed.launch --npro
         --lr "0.1" \
         --alpha "1.0" \
         --epsilon "0.01" \
-        --warmup "5"
+        --warmup "5";
 ```
 
 ## Visualize features in 2D space
