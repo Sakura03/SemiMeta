@@ -18,10 +18,10 @@ class Logger():
         self.stdout_handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(message)s'))
         self.file_handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(message)s'))
         self.logger.setLevel(logging.INFO)
-    
+
     def info(self, txt):
         self.logger.info(txt)
-    
+
     def close(self):
         self.file_handler.close()
         self.stdout_handler.close()

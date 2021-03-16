@@ -18,7 +18,6 @@ parser.add_argument('--save-path', type=str, help='Directory of save path')
 parser.add_argument('--num-point', type=int, default=None, help='Number of points for unlabeled data and test data')
 args = parser.parse_args()
 
-
 class ConvLarge(nn.Module):
     def __init__(self, input_dim=3, num_classes=10, stochastic=True, top_bn=False):
         super(ConvLarge, self).__init__()
@@ -49,7 +48,7 @@ class ConvLarge(nn.Module):
                 nn.Conv2d(input_dim, out_dim, kernel_size, stride, padding, bias=False),
                 nn.BatchNorm2d(out_dim),
                 nn.LeakyReLU(inplace=True, negative_slope=lrelu_slope)
-                )
+        )
 
     def forward(self, x):
         out = self.block1(x)
@@ -75,151 +74,152 @@ class ConvLarge(nn.Module):
 meanstd = {
         'cifar10': [(0.49139968, 0.48215841, 0.44653091), (0.24703223, 0.24348513, 0.26158784)],
         'svhn': [(0.4376821, 0.4437697, 0.47280442), (0.19803012, 0.20101562, 0.19703614)]
-        }
+}
 
-make_folder(args.save_path)
+if __name__ == "__main__":
+    make_folder(args.save_path)
 
-with open(args.index_path, 'r') as f:
-    label_indices = [int(line.rstrip('\n')) for line in f]
+    with open(args.index_path, 'r') as f:
+        label_indices = [int(line.rstrip('\n')) for line in f]
 
-data_transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize(*meanstd[args.dataset])
-        ])
-if args.dataset == "cifar10":
-    train_dataset = dsets.CIFAR10(root=args.data_path, train=True, download=True, transform=data_transform)
-elif args.dataset == "svhn":
-    train_dataset = dsets.SVHN(root=args.data_path, split='train', download=True, transform=data_transform)
+    data_transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize(*meanstd[args.dataset])
+    ])
 
-unlabel_indices = []
-for idx in range(len(train_dataset.data)):
-    if not idx in label_indices:
-        unlabel_indices.append(idx)
+    if args.dataset == "cifar10":
+        train_dataset = dsets.CIFAR10(root=args.data_path, train=True, download=True, transform=data_transform)
+    elif args.dataset == "svhn":
+        train_dataset = dsets.SVHN(root=args.data_path, split='train', download=True, transform=data_transform)
 
-label_num = len(label_indices)
-unlabel_num = len(unlabel_indices)
-print("# data: %d, labeled: %d, unlabeled: %d" % (len(train_dataset.data), label_num, unlabel_num))
+    unlabel_indices = []
+    for idx in range(len(train_dataset.data)):
+        if not idx in label_indices:
+            unlabel_indices.append(idx)
 
-label_indices = SubsetRandomSampler(label_indices)
-unlabel_indices = SubsetRandomSampler(unlabel_indices)
-label_loader = DataLoader(train_dataset, batch_size=100, num_workers=4, sampler=label_indices)
-unlabel_loader = DataLoader(train_dataset, batch_size=100, num_workers=4, sampler=unlabel_indices)
+    label_num = len(label_indices)
+    unlabel_num = len(unlabel_indices)
+    print("# data: %d, labeled: %d, unlabeled: %d" % (len(train_dataset.data), label_num, unlabel_num))
 
-if args.dataset == "cifar10":
-    test_dataset = dsets.CIFAR10(root=args.data_path, train=False, download=True, transform=data_transform)
-elif args.dataset == "svhn":
-    test_dataset = dsets.SVHN(root=args.data_path, split='test', download=True, transform=data_transform)
+    label_indices = SubsetRandomSampler(label_indices)
+    unlabel_indices = SubsetRandomSampler(unlabel_indices)
+    label_loader = DataLoader(train_dataset, batch_size=100, num_workers=4, sampler=label_indices)
+    unlabel_loader = DataLoader(train_dataset, batch_size=100, num_workers=4, sampler=unlabel_indices)
 
-test_loader = DataLoader(test_dataset, batch_size=100, num_workers=0)
+    if args.dataset == "cifar10":
+        test_dataset = dsets.CIFAR10(root=args.data_path, train=False, download=True, transform=data_transform)
+    elif args.dataset == "svhn":
+        test_dataset = dsets.SVHN(root=args.data_path, split='test', download=True, transform=data_transform)
 
-model = ConvLarge(num_classes=10).cuda()
+    test_loader = DataLoader(test_dataset, batch_size=100, num_workers=0)
 
-assert isfile(args.checkpoint_path), "No checkpoint at %s" % args.checkpoint_path
-checkpoint = torch.load(args.checkpoint_path)
-model.load_state_dict(checkpoint['model'])
-model.eval()
+    model = ConvLarge(num_classes=10).cuda()
 
-label_features, unlabel_features, test_features = [], [], []
-label_categories, unlabel_categories, test_categories = [], [], []
+    assert isfile(args.checkpoint_path), "No checkpoint at %s" % args.checkpoint_path
+    checkpoint = torch.load(args.checkpoint_path)
+    model.load_state_dict(checkpoint['model'])
+    model.eval()
 
-with torch.no_grad():
-    print("Processing labeled data...")
-    for step, (data, labels) in enumerate(label_loader):
-        data = data.cuda()
-        features = model(data)
+    label_features, unlabel_features, test_features = [], [], []
+    label_categories, unlabel_categories, test_categories = [], [], []
 
-        label_features.append(features)
-        label_categories.append(labels)
+    with torch.no_grad():
+        print("Processing labeled data...")
+        for step, (data, labels) in enumerate(label_loader):
+            data = data.cuda()
+            features = model(data)
 
-        if step % 100 == 0:
-            print("[%d/%d] Finished!" % (step, len(label_loader)))
+            label_features.append(features)
+            label_categories.append(labels)
 
-    print("Processing unlabeled data...")
-    for step, (data, labels) in enumerate(unlabel_loader):
-        data = data.cuda()
-        features = model(data)
+            if step % 100 == 0:
+                print("[%d/%d] Finished!" % (step, len(label_loader)))
 
-        unlabel_features.append(features)
-        unlabel_categories.append(labels)
+        print("Processing unlabeled data...")
+        for step, (data, labels) in enumerate(unlabel_loader):
+            data = data.cuda()
+            features = model(data)
 
-        if step % 100 == 0:
-            print("[%d/%d] Finished!" % (step, len(unlabel_loader)))
+            unlabel_features.append(features)
+            unlabel_categories.append(labels)
 
-    print("Processing test data...")
-    for step, (data, labels) in enumerate(test_loader):
-        data = data.cuda()
-        features = model(data)
+            if step % 100 == 0:
+                print("[%d/%d] Finished!" % (step, len(unlabel_loader)))
 
-        test_features.append(features)
-        test_categories.append(labels)
+        print("Processing test data...")
+        for step, (data, labels) in enumerate(test_loader):
+            data = data.cuda()
+            features = model(data)
 
-        if step % 100 == 0:
-            print("[%d/%d] Finished!" % (step, len(test_loader)))
+            test_features.append(features)
+            test_categories.append(labels)
 
-label_features = torch.cat(label_features, dim=0).cpu().numpy()
-unlabel_features = torch.cat(unlabel_features, dim=0).cpu().numpy()
-test_features = torch.cat(test_features, dim=0).cpu().numpy()
+            if step % 100 == 0:
+                print("[%d/%d] Finished!" % (step, len(test_loader)))
 
-label_categories = torch.cat(label_categories, dim=0).cpu().numpy()
-unlabel_categories = torch.cat(unlabel_categories, dim=0).cpu().numpy()
-test_categories = torch.cat(test_categories, dim=0).cpu().numpy()
+    label_features = torch.cat(label_features, dim=0).cpu().numpy()
+    unlabel_features = torch.cat(unlabel_features, dim=0).cpu().numpy()
+    test_features = torch.cat(test_features, dim=0).cpu().numpy()
 
-all_features = np.concatenate([label_features, unlabel_features, test_features], axis=0)
+    label_categories = torch.cat(label_categories, dim=0).cpu().numpy()
+    unlabel_categories = torch.cat(unlabel_categories, dim=0).cpu().numpy()
+    test_categories = torch.cat(test_categories, dim=0).cpu().numpy()
 
-print("Computing TSNE features...")
-embedded_features = TSNE(n_components=2).fit_transform(all_features)
-np.save(join(args.save_path, "aligned.npy"), embedded_features)
-print("Done!")
+    all_features = np.concatenate([label_features, unlabel_features, test_features], axis=0)
 
-embedded_label_features = embedded_features[:label_num, :]
-embedded_unlabel_features = embedded_features[label_num:label_num+unlabel_num, :]
-embedded_test_features = embedded_features[label_num+unlabel_num:, :]
-if args.num_point is not None:
-    idx = list(range(embedded_unlabel_features.shape[0]))
-    random.shuffle(idx)
-    idx = idx[:args.num_point]
-    embedded_unlabel_features = embedded_unlabel_features[idx]
-    unlabel_categories = unlabel_categories[idx]
+    print("Computing TSNE features...")
+    embedded_features = TSNE(n_components=2).fit_transform(all_features)
+    np.save(join(args.save_path, "aligned.npy"), embedded_features)
+    print("Done!")
 
-    idx = list(range(embedded_test_features.shape[0]))
-    random.shuffle(idx)
-    idx = idx[:args.num_point]
-    embedded_test_features = embedded_test_features[idx]
-    test_categories = test_categories[idx]
+    embedded_label_features = embedded_features[:label_num, :]
+    embedded_unlabel_features = embedded_features[label_num:label_num+unlabel_num, :]
+    embedded_test_features = embedded_features[label_num+unlabel_num:, :]
+    if args.num_point is not None:
+        idx = list(range(embedded_unlabel_features.shape[0]))
+        random.shuffle(idx)
+        idx = idx[:args.num_point]
+        embedded_unlabel_features = embedded_unlabel_features[idx]
+        unlabel_categories = unlabel_categories[idx]
 
-color_dict = ["lightcoral", "darkgreen", "cadetblue", "darkorange", "peru",
-              "cornflowerblue", "khaki", "magenta", "gray", "slategrey"]
+        idx = list(range(embedded_test_features.shape[0]))
+        random.shuffle(idx)
+        idx = idx[:args.num_point]
+        embedded_test_features = embedded_test_features[idx]
+        test_categories = test_categories[idx]
 
-fig, axes = plt.subplots(1, 4, figsize=(24, 6))
+    color_dict = ["lightcoral", "darkgreen", "cadetblue", "darkorange", "peru", "cornflowerblue", "khaki", "magenta", "gray", "slategrey"]
 
-for i in range(len(color_dict)):
-    idx_i = (label_categories == i)
-    axes[0].scatter(embedded_label_features[idx_i, 0], embedded_label_features[idx_i, 1], c=color_dict[i], cmap=plt.cm.Spectral, s=10)
-axes[0].set_xticks([])
-axes[0].set_yticks([])
+    fig, axes = plt.subplots(1, 4, figsize=(24, 6))
 
-for i in range(len(color_dict)):
-    idx_i = (unlabel_categories == i)
-    axes[1].scatter(embedded_unlabel_features[idx_i, 0], embedded_unlabel_features[idx_i, 1], c=color_dict[i], cmap=plt.cm.Spectral, s=10)
-axes[1].set_xticks([])
-axes[1].set_yticks([])
+    for i in range(len(color_dict)):
+        idx_i = (label_categories == i)
+        axes[0].scatter(embedded_label_features[idx_i, 0], embedded_label_features[idx_i, 1], c=color_dict[i], cmap=plt.cm.Spectral, s=10)
+    axes[0].set_xticks([])
+    axes[0].set_yticks([])
 
-for i in range(len(color_dict)):
-    idx_i = (test_categories == i)
-    axes[2].scatter(embedded_test_features[idx_i, 0], embedded_test_features[idx_i, 1], c=color_dict[i], cmap=plt.cm.Spectral, s=10)
-axes[2].set_xticks([])
-axes[2].set_yticks([])
+    for i in range(len(color_dict)):
+        idx_i = (unlabel_categories == i)
+        axes[1].scatter(embedded_unlabel_features[idx_i, 0], embedded_unlabel_features[idx_i, 1], c=color_dict[i], cmap=plt.cm.Spectral, s=10)
+    axes[1].set_xticks([])
+    axes[1].set_yticks([])
 
-axes[3].scatter(embedded_unlabel_features[:, 0], embedded_unlabel_features[:, 1], c="blue", cmap=plt.cm.Spectral, s=10)
-axes[3].scatter(embedded_test_features[:, 0], embedded_test_features[:, 1], c="grey", cmap=plt.cm.Spectral, s=10)
-axes[3].scatter(embedded_label_features[:, 0], embedded_label_features[:, 1], c="red", cmap=plt.cm.Spectral, s=10)
-axes[3].set_xticks([])
-axes[3].set_yticks([])
+    for i in range(len(color_dict)):
+        idx_i = (test_categories == i)
+        axes[2].scatter(embedded_test_features[idx_i, 0], embedded_test_features[idx_i, 1], c=color_dict[i], cmap=plt.cm.Spectral, s=10)
+    axes[2].set_xticks([])
+    axes[2].set_yticks([])
 
-filename = join(args.save_path, "visualization.pdf")
-plt.tight_layout()
-plt.savefig(filename)
-plt.close(fig)
+    axes[3].scatter(embedded_unlabel_features[:, 0], embedded_unlabel_features[:, 1], c="blue", cmap=plt.cm.Spectral, s=10)
+    axes[3].scatter(embedded_test_features[:, 0], embedded_test_features[:, 1], c="grey", cmap=plt.cm.Spectral, s=10)
+    axes[3].scatter(embedded_label_features[:, 0], embedded_label_features[:, 1], c="red", cmap=plt.cm.Spectral, s=10)
+    axes[3].set_xticks([])
+    axes[3].set_yticks([])
 
-# os.system("pdfcrop --margins \"0 0 0 0\" %s %s"%(filename,filename))
+    filename = join(args.save_path, "visualization.pdf")
+    plt.tight_layout()
+    plt.savefig(filename)
+    plt.close(fig)
+
+    # os.system("pdfcrop --margins \"0 0 0 0\" %s %s"%(filename, filename))
 

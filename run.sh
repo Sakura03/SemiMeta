@@ -1,5 +1,5 @@
 # Only label data (Baseline)
-# CUDA_VISIBLE_DEVICES=0 python3 train_baseline.py --save_path "your/path/to/save/baseline/results"
+# CUDA_VISIBLE_DEVICES=0 python3 train_baseline.py --save_path "/your/path/to/save/baseline/results"
 #
 # Meta-learning (Ours)
 CUDA_VISIBLE_DEVICES='0' python3 train_meta.py \
@@ -8,12 +8,11 @@ CUDA_VISIBLE_DEVICES='0' python3 train_meta.py \
         -a "convlarge" \
 	--mix-up \
 	--alpha "1.0" \
-        --save-path "your/path/to/save/results" \
+        --save-path "/your/path/to/save/results" \
         --weight "1.0" \
 	--total-steps "400000" \
         --milestones "[300000, 350000]" \
         --lr "0.1" \
 	--seed "7788" \
         --warmup "4000" \
-        --const-steps "0" \
         --weight-decay "1e-4";

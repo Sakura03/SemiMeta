@@ -23,8 +23,6 @@ parser.add_argument('--start-step', type=int, default=0, help='Start step (for r
 parser.add_argument('--batch-size', type=int, default=128, help='Batch size')
 parser.add_argument('--lr', type=float, default=0.1, help='Maximum learning rate')
 parser.add_argument('--warmup', type=int, default=4000, help='Warmup iterations')
-parser.add_argument('--const-steps', type=int, default=0, help='Number of iterations of constant lr')
-parser.add_argument('--lr-decay', type=str, default='step', choices=['step', 'linear', 'cosine'], help='Learning rate annealing strategy')
 parser.add_argument('--gamma', type=float, default=0.1, help='Learning rate annealing multiplier')
 parser.add_argument('--milestones', type=eval, default=[300000, 350000], help='Learning rate annealing steps')
 parser.add_argument('--weight-decay', type=float, default=1e-4, help='Weight decay')
@@ -44,7 +42,7 @@ torch.manual_seed(args.seed)
 torch.cuda.manual_seed_all(args.seed)
 os.environ['PYTHONHASHSEED'] = str(args.seed)
 torch.backends.cudnn.deterministic = True
-torch.backends.cudnn.benchmark = False
+torch.backends.cudnn.benchmark = True
 
 # Create directories if not exist
 make_folder(args.save_path)
@@ -52,7 +50,6 @@ logger = Logger(join(args.save_path, 'log.txt'))
 writer = SummaryWriter(log_dir=args.save_path)
 logger.info('Called with args:')
 logger.info(args)
-torch.backends.cudnn.benchmark = True
 
 # Define dataloader
 logger.info("Loading data...")
@@ -65,7 +62,7 @@ train_loader, test_loader = dataloader(
         num_iters = args.total_steps,
         return_unlabel = args.mix_up,
         save_path = args.save_path
-        )
+)
 
 # Build model and optimizer
 logger.info("Building model and optimizer...")
@@ -73,8 +70,6 @@ if args.architecture == "convlarge":
     model = ConvLarge(num_classes=args.num_classes, stochastic=True).cuda()
 elif args.architecture == "shakeshake":
     model = shakeshake26(num_classes=args.num_classes).cuda()
-elif args.architecture == "wrn":
-    model = wideresnet28(num_classes=args.num_classes).cuda()
 optimizer = SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
 logger.info("Model:\n%s\nOptimizer:\n%s" % (str(model), str(optimizer)))
 
@@ -98,17 +93,11 @@ if args.resume is not None:
 def compute_lr(step):
     if step < args.warmup:
         lr = args.lr * step / args.warmup
-    elif step < args.warmup + args.const_steps:
-        lr = args.lr
-    elif args.lr_decay == "step":
+    else:
         lr = args.lr
         for milestone in args.milestones:
             if step > milestone:
                 lr *= args.gamma
-    elif args.lr_decay == "linear":
-        lr = args.lr * ( 1. - (step-args.warmup-args.const_steps) / (args.total_steps-args.warmup-args.const_steps) )
-    elif args.lr_decay == "cosine":
-        lr = args.lr * ( 1. + math.cos( (step-args.warmup-args.const_steps) / (args.total_steps-args.warmup-args.const_steps) *  math.pi ) ) / 2.
     return lr
 
 def main():
@@ -125,7 +114,7 @@ def main():
             label_img, label_gt, unlabel_img, unlabel_gt = next(train_loader)
         else:
             label_img, label_gt = next(train_loader)
-        
+
         label_img = label_img.cuda()
         label_gt = label_gt.cuda()
         if args.mix_up:
@@ -156,7 +145,7 @@ def main():
             # Regular label loss
             label_pred = model(label_img)
             loss = F.cross_entropy(label_pred, label_gt, reduction='mean')
-        
+
         # One SGD step
         optimizer.zero_grad()
         loss.backward()
@@ -173,7 +162,7 @@ def main():
         acc.update(top1.item(), label_img.size(0))
         if args.mix_up:
             unlabel_acc.update(unlabel_top1.item(), unlabel_img.size(0))
-        
+
         # Print and log
         if step % args.print_freq == 0:
             logger.info("Step: [{0:05d}/{1:05d}] Dtime: {dtimes.avg:.3f} Btime: {btimes.avg:.3f} "
@@ -184,7 +173,7 @@ def main():
         # Test and save model
         if (step + 1) % args.test_freq == 0 or step == args.total_steps - 1:
             val_acc = evaluate(test_loader, model)
-            
+
             # Remember best accuracy and save checkpoint
             is_best = val_acc > best_acc
             if is_best:
@@ -196,7 +185,7 @@ def main():
                 'best_acc': best_acc,
                 'optimizer' : optimizer.state_dict()
                 }, is_best, path=args.save_path, filename="checkpoint.pth")
-            
+
             # Write to tfboard
             writer.add_scalar('train/label-acc', top1.item(), step)
             if args.mix_up:
@@ -204,7 +193,7 @@ def main():
             writer.add_scalar('train/loss', loss.item(), step)
             writer.add_scalar('train/lr', optimizer.param_groups[0]['lr'], step)
             writer.add_scalar('test/accuracy', val_acc, step)
-            
+
             # Reset AverageMeters
             losses.reset()
             acc.reset()
@@ -221,11 +210,11 @@ def evaluate(test_loader, model):
         # Load data
         data = data.cuda()
         target = target.cuda()
-        
+
         # Compute output
         pred = model(data)
         loss = F.cross_entropy(pred, target, reduction='mean')
-        
+
         # Measure accuracy and record loss
         top1, = accuracy(pred, target, topk=(1,))
         losses.update(loss.item(), data.size(0))
@@ -233,13 +222,13 @@ def evaluate(test_loader, model):
         # Measure elapsed time
         batch_time.update(time.time() - end)
         end = time.time()
-        
+
         if i % args.print_freq == 0:
             logger.info('Test: [{0}/{1}] Time {btime.val:.3f} (avg={btime.avg:.3f}) '
                         'Test Loss {loss.val:.3f} (avg={loss.avg:.3f}) '
                         'Acc {acc.val:.3f} (avg={acc.avg:.3f})' \
                         .format(i, len(test_loader), btime=batch_time, loss=losses, acc=acc))
-    
+
     logger.info(' * Accuracy {acc.avg:.5f}'.format(acc=acc))
     model.train()
     return acc.avg
