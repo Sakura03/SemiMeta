@@ -1,8 +1,27 @@
 # Semi-Supervised Learning with Meta-Gradient
 
-By Xin-Yu Zhang, Taihong Xiao, Haolin Jia, Ming-Ming Cheng, and Ming-Hsuan Yang.
+Official implementation of paper: [Semi-Supervised Learning with Meta-Gradient](https://arxiv.org/abs/2007.03966) (AISTATS 2021), by Xin-Yu Zhang, Taihong Xiao, Haolin Jia, Ming-Ming Cheng, and Ming-Hsuan Yang.
 
-## Prerequisite
+Under construction
+
+## Introduction
+
+This repository contains the official implementation of the `MetaSemi` algorithm for Semi-Supervised Learning (SSL). `MetaSemi` is a consistency-based SSL algorithm in which the **consistency loss** is guided by the **label information** of the specific task of interst. However, the consistency loss seems to have no relationship with the label information, so we borrow the idea of meta-learning to establish their relationship by differentiating through the gradient descent step.
+
+## Algorithm
+
+we formulate SSL as a bi-level optimization problem:
+$$
+\min_{\mathcal{Y}}&~\sum_{k=1}^{N^{l}} \mathcal{L}(\vx_{k}^{l}, \vy_{k}; \vtheta^{*}(\mathcal{Y})) \\
+\mbox{s.t.}&~\vtheta^{*}(\mathcal{Y}) = \argmin_{\theta} \sum_{i=1}^{N^{u}} \mathcal{L}(\vx_{i}^{u}, \widehat{\vy}_{i}; \vtheta),
+$$
+and solve it by an online approximation approach. The `MetaSemi` algorithm is summarized below:
+
+## Reproduce the experimental results
+
+### Prerequisite
+
+Please make sure the following packages are installed in your environment. Also, we provide the `Dockerfile` in the `docker` directory.
 
 | **Package**    | **version**  |
 |----------------|--------------|
@@ -11,7 +30,11 @@ By Xin-Yu Zhang, Taihong Xiao, Haolin Jia, Ming-Ming Cheng, and Ming-Hsuan Yang.
 | numpy          |  >=1.17.2    |
 | tensorboardX   |  >=2.0       |
 
-## Train the SemiMeta Algorithm on CIFAR/SVHN
+
+Our performance is favorable on SVHN and CIFAR datasets:
+
+
+### Train the SemiMeta Algorithm on CIFAR/SVHN
 
 ```
 CUDA_VISIBLE_DEVICES='0' python3 train_meta.py \
@@ -30,7 +53,7 @@ CUDA_VISIBLE_DEVICES='0' python3 train_meta.py \
         --weight-decay "1e-4";
 ```
 
-## Visualize features in 2D space
+### Visualize features in 2D space
 
 The following scripts reproduce Figure 3 in the paper.
 
