@@ -169,10 +169,13 @@ CUDA_VISIBLE_DEVICES='0,1,2,3' python3 -m torch.distributed.launch --nproc_per_n
 
 ### Visualize Features in 2D Space
 
-To reproduce Fig. 3 in our [paper](https://arxiv.org/abs/2007.03966), run the following script:
+To reproduce Fig. 3 in our [paper](https://arxiv.org/abs/2007.03966), run the following commands:
 
 ```
-bash visualization.sh
+# SVHN
+CUDA_VISIBLE_DEVICES="0" python3 plot_features.py --dataset "svhn" --checkpoint-path "results/svhn/model_best.pth" --index-path "results/svhn/label_indices.txt" --save-path "results/svhn/visualization" --num-point '5000';
+
+CUDA_VISIBLE_DEVICES="0" python3 plot_features.py --dataset "cifar10" --checkpoint-path "results/cifar-10/model_best.pth" --index-path "results/cifar-10/label_indices.txt" --save-path "results/cifar-10/visualization" --num-point '5000';
 ```
 
 ## Citation
