@@ -7,7 +7,7 @@ from tensorboardX import SummaryWriter
 
 from dataloader import dataloader
 from utils import make_folder, AverageMeter, Logger, accuracy, save_checkpoint, compute_weight
-from model import ConvLarge, shakeshake26, wideresnet28
+from model import ConvLarge, shakeshake26
 
 parser = argparse.ArgumentParser()
 # Basic configuration
