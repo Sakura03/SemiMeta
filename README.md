@@ -36,9 +36,9 @@ Also, we provide the [Dockerfile](Docker/Dockerfile) containing all necessary de
 cd Docker
 sudo docker build .
 sudo docker images
-sudo docker run <the-image-id> --network=host        # Enter the image id shown in the last command
+sudo docker run <the-image-id> --network=host      # Enter the image id shown in the last command
 sudo docker ps
-sudo docker exec -it <the-container-id> bash         # Enter the container id shown in the last command
+sudo docker exec -it <the-container-id> bash       # Enter the container id shown in the last command
 ```
 
 ### SVHN and CIFAR Datasets
@@ -61,7 +61,6 @@ CUDA_VISIBLE_DEVICES='0' python3 train_meta.py --dataset "cifar10" --num-label "
 
 # CIFAR-100
 CUDA_VISIBLE_DEVICES='0' python3 train_meta.py --dataset "cifar100" --num-label "10000" -a "convlarge" --mix-up --alpha "1.0" --save-path "results/cifar-100" --seed "7788" --weight-decay "1e-4" --gpu;
-
 ```
 
 Please omit the `--gpu` flag and `CUDA_VISIBLE_DEVICES='0'` prefix if there is no GPU device available.
@@ -127,16 +126,16 @@ P.S. Please make sure that your disk have enough space available, since this ope
 Now, it's time to build the image recorder (See [reference](https://cv.gluon.ai/build/examples_datasets/recordio.html#sphx-glr-download-build-examples-datasets-recordio-py)). Run the following commands:
 ```
 # For labeled data
-python3 im2rec.py ./train_label /path/to/save/split/data/labeled/ --recursive --list --num-thread 8
-python3 im2rec.py ./train_label /path/to/save/split/data/labeled/ --recursive --pass-through --pack-label --num-thread 8
+python3 im2rec.py ./train_label /your-download-path/labeled/ --recursive --list --num-thread 8
+python3 im2rec.py ./train_label /your-download-path/labeled/ --recursive --pass-through --pack-label --num-thread 8
 
 # For unlabeled data
-python3 im2rec.py ./train_unlabel /path/to/save/split/data/unlabeled/ --recursive --list --num-thread 8
-python3 im2rec.py ./train_unlabel /path/to/save/split/data/unlabeled/ --recursive --pass-through --pack-label --num-thread 8
+python3 im2rec.py ./train_unlabel /your-download-path/unlabeled/ --recursive --list --num-thread 8
+python3 im2rec.py ./train_unlabel /your-download-path/unlabeled/ --recursive --pass-through --pack-label --num-thread 8
 
 # For validation data
-python im2rec.py ./val /your-download-path/val --recursive --list --num-thread 8
-python im2rec.py ./val /your-download-path/val --recursive --pass-through --pack-label --no-shuffle --num-thread 8
+python im2rec.py ./val /your-download-path/val/ --recursive --list --num-thread 8
+python im2rec.py ./val /your-download-path/val/ --recursive --pass-through --pack-label --no-shuffle --num-thread 8
 ```
 
 Again, the resulting `*.rec` files are still copies of ImageNet, so please make sure enough space is available. Finally, under `/your-download-path`, there should be nine files:
