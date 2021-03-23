@@ -1,4 +1,4 @@
-from pytorch/pytorch:1.8.0-cuda11.1-cudnn8-devel
+from pytorch/pytorch:1.8.0-cuda10.2-cudnn8-devel
 
 # Add the keys and set permissions
 RUN apt-get update && apt-get install -y openssh-server && \
