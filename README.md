@@ -45,11 +45,10 @@ sudo docker exec -it <the-container-id> bash         # Enter the container id sh
 
 Our performance on SVHN and CIFAR datasets is as follows:
 
-| **Dataset**       |   **SVHN**   | **CIFAR-10** | **CIFAR-100** |
+|    **Dataset**    |   **SVHN**   | **CIFAR-10** | **CIFAR-100** |
 |-------------------|--------------|--------------|---------------|
-| **Num of Labels** |    1000      |    4000      |    10000      |
-|-------------------|--------------|--------------|---------------|
-| **Error Rate**    |    3.15%     |    7.78%     |    30.74%     |
+| **Num of Labels** |     1000     |     4000     |     10000     |
+|   **Error Rate**  |     3.15%    |     7.78%    |     30.74%    |
 
 To reproduce these results, run the following script:
 
