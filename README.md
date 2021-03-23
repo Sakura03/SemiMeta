@@ -2,7 +2,7 @@
 
 Official implementation of paper: **Semi-Supervised Learning with Meta-Gradient** (AISTATS 2021), by Xin-Yu Zhang, Taihong Xiao, Haolin Jia, Ming-Ming Cheng, and Ming-Hsuan Yang. [[paper](https://arxiv.org/abs/2007.03966), [poster](images/aistats-poster.pdf), [video](images/poster-video.mp4), [short slides](images/brief-slides.pdf), [full slides](images/full-slides.pdf)]
 
-Under construction
+Under construction.
 
 ## Introduction
 
@@ -18,55 +18,60 @@ Solving the exact optimization problem is computationally prohibitive, so we ado
 
 Apart from meta-learning, we adopt several tricks to alleviate computation overhead and promote performance. Please refer to our [paper](https://arxiv.org/abs/2007.03966) for these details.
 
-## Reproduce the experimental results
+## Reproduce the Experimental Results
 
 ### Prerequisite
 
-Please make sure the following packages are installed in your environment. Also, we provide the `Dockerfile` in the `docker` directory.
+Please make sure the following packages are installed in your environment:
 
-| **Package**    | **version**  |
+| **Package**    | **Version**  |
 |----------------|--------------|
 | python         |  >=3.5       |
 | pytorch        |  >=1.2       |
 | tensorboardX   |  >=2.0       |
 
-
-Our performance is favorable on SVHN and CIFAR datasets:
-
-
-### Train the SemiMeta Algorithm on CIFAR/SVHN
+Also, we provide the [Dockerfile](Docker/Dockerfile) containing all necessary dependencies. You can simply run the following scripts to enter the docker environment:
 
 ```
-CUDA_VISIBLE_DEVICES='0' python3 train_meta.py \
-        --dataset "cifar100" \
-        --num-label "10000" \
-        -a "convlarge" \
-        --mix-up \
-        --alpha "1.0" \
-        --save-path "/your/path/to/save/results" \
-        --weight "1.0" \
-        --total-steps "400000" \
-        --milestones "[300000, 350000]" \
-        --lr "0.1" \
-        --seed "7788" \
-        --warmup "4000" \
-        --weight-decay "1e-4";
+cd Docker
+sudo docker build .
+sudo docker images
+sudo docker run <the-image-id> --network=host        # Enter the image id shown in the last command
+sudo docker ps
+sudo docker exec -it <the-container-id> bash         # Enter the container id shown in the last command
 ```
+
+### SVHN and CIFAR Datasets
+
+Our performance on SVHN and CIFAR datasets is as follows:
+
+| **Dataset**       |   **SVHN**   | **CIFAR-10** | **CIFAR-100** |
+|-------------------|--------------|--------------|---------------|
+| **Num of Labels** |    1000      |    4000      |    10000      |
+|-------------------|--------------|--------------|---------------|
+| **Error Rate**    |    3.15%     |    7.78%     |    30.74%     |
+
+To reproduce these results, run the following script:
+
+```
+bash run.sh
+```
+
+### ImageNet Dataset
+
+TODO
 
 ### Visualize features in 2D space
 
-The following scripts reproduce Figure 3 in the paper.
+To reproduce Fig. 3 in our [paper](https://arxiv.org/abs/2007.03966), run the following script:
 
 ```
-CUDA_VISIBLE_DEVICES="0" python3 plot_features.py \
-        --dataset "svhn" \
-        --checkpoint-path "/path/to/model_best.pth" \
-        --index-path "path/to/label_indices.txt" \
-        --save-path "/your/save/path" \
-        --num-point '5000';
+bash visualization.sh
 ```
 
 ## Citation
+
+If you find our work intersting or helpful to your research, please consider citing our paper.
 
 ```
 @inproceedings{zhang2020semisupervised,
