@@ -1,6 +1,6 @@
 # Semi-Supervised Learning with Meta-Gradient
 
-Official implementation of paper: [Semi-Supervised Learning with Meta-Gradient](https://arxiv.org/abs/2007.03966) (AISTATS 2021), by Xin-Yu Zhang, Taihong Xiao, Haolin Jia, Ming-Ming Cheng, and Ming-Hsuan Yang.
+Official implementation of paper: **Semi-Supervised Learning with Meta-Gradient** (AISTATS 2021), by Xin-Yu Zhang, Taihong Xiao, Haolin Jia, Ming-Ming Cheng, and Ming-Hsuan Yang. [[paper](https://arxiv.org/abs/2007.03966), [poster](images/aistats-poster.pdf), [video](images/poster-video.mp4), [short slides](images/brief-slides.pdf), [full slides](images/full-slides.pdf)]
 
 Under construction
 
@@ -10,16 +10,13 @@ This repository contains the official implementation of the `MetaSemi` algorithm
 
 ## Algorithm
 
-we formulate SSL as a bi-level optimization problem:
+we formulate SSL as a bi-level optimization problem, as shown in the following image:
+![Bi-level optimization.](images/formulation.png)
 
-$$
-\min_{\mathcal{Y}}&~\sum_{k=1}^{N^{l}} \mathcal{L}(\vx_{k}^{l}, \vy_{k}; \vtheta^{*}(\mathcal{Y})) \\
-\mbox{s.t.}&~\vtheta^{*}(\mathcal{Y}) = \argmin_{\theta} \sum_{i=1}^{N^{u}} \mathcal{L}(\vx_{i}^{u}, \widehat{\vy}_{i}; \vtheta),
-$$
+Solving the exact optimization problem is computationally prohibitive, so we adopt an online approximation approach. The `MetaSemi` algorithm is summarized below:
+![Meta-learning algorithm.](images/algorithm.png)
 
-<img src="https://render.githubusercontent.com/render/math?math=\min_{\mathcal{Y}}&~\sum_{k=1}^{N^{l}} \mathcal{L}(\vx_{k}^{l}, \vy_{k}; \vtheta^{*}(\mathcal{Y}))">
-
-and solve it by an online approximation approach. The `MetaSemi` algorithm is summarized below:
+Apart from meta-learning, we adopt several tricks to alleviate computation overhead and promote performance. Please refer to our [paper](https://arxiv.org/abs/2007.03966) for these details.
 
 ## Reproduce the experimental results
 
