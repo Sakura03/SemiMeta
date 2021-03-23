@@ -11,10 +11,14 @@ This repository contains the official implementation of the `MetaSemi` algorithm
 ## Algorithm
 
 we formulate SSL as a bi-level optimization problem:
+
 $$
 \min_{\mathcal{Y}}&~\sum_{k=1}^{N^{l}} \mathcal{L}(\vx_{k}^{l}, \vy_{k}; \vtheta^{*}(\mathcal{Y})) \\
 \mbox{s.t.}&~\vtheta^{*}(\mathcal{Y}) = \argmin_{\theta} \sum_{i=1}^{N^{u}} \mathcal{L}(\vx_{i}^{u}, \widehat{\vy}_{i}; \vtheta),
 $$
+
+<img src="https://render.githubusercontent.com/render/math?math=\min_{\mathcal{Y}}&~\sum_{k=1}^{N^{l}} \mathcal{L}(\vx_{k}^{l}, \vy_{k}; \vtheta^{*}(\mathcal{Y}))">
+
 and solve it by an online approximation approach. The `MetaSemi` algorithm is summarized below:
 
 ## Reproduce the experimental results
@@ -27,7 +31,6 @@ Please make sure the following packages are installed in your environment. Also,
 |----------------|--------------|
 | python         |  >=3.5       |
 | pytorch        |  >=1.2       |
-| numpy          |  >=1.17.2    |
 | tensorboardX   |  >=2.0       |
 
 
@@ -69,12 +72,10 @@ CUDA_VISIBLE_DEVICES="0" python3 plot_features.py \
 ## Citation
 
 ```
-@InProceedings{zhang2020semisupervised,
-      title={Semi-Supervised Learning with Meta-Gradient}, 
-      author={Xin-Yu Zhang and Taihong Xiao and Haolin Jia and Ming-Ming Cheng and Ming-Hsuan Yang},
-      year={2020},
-      eprint={2007.03966},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG}
+@inproceedings{zhang2020semisupervised,
+  author    = {Xin-Yu Zhang and Taihong Xiao and Haolin Jia and Ming-Ming Cheng and Ming-Hsuan Yang},
+  title     = {{Semi-Supervised Learning with Meta-Gradient}},
+  booktitle = International Conference on Artificial Intelligence and Statistics (AISTATS),
+  year      = {2021}
 }
 ```
