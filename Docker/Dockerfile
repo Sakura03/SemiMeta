@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y openssh-server && \
 RUN echo "root:123" | chpasswd
 
 RUN pip3 install tensorboardX && \
-    apt-get install git
+    apt-get install -y git
 
 RUN git clone https://github.com/Sakura03/SemiMeta.git
 
