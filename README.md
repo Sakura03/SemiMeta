@@ -157,7 +157,15 @@ You only need these nine files to run experiments on ImageNet. Other files are a
 
 #### Run Experiments on ImageNet
 
+The following command runs the SSL experiment on ImageNet. We assume eigen GPUs are used in training. The argument `--data` specifies the directory that contains the above-mentioned nine files.
+```
+CUDA_VISIBLE_DEVICES='0,1,2,3,4,5,6,7' python -m torch.distributed.launch --nproc_per_node=8 train_meta_imagenet.py -a "resnet18" --data "/path/to/rec" --save-path "results/imagenet-meta" --batch-size "64" --alpha "1.0";
+```
 
+We also provide script to run the baseline model (labeled-data-only):
+```
+CUDA_VISIBLE_DEVICES='0,1,2,3' python3 -m torch.distributed.launch --nproc_per_node=4 train_imagenet.py -a "resnet18" --data "/path/to/rec" --save-path "results/imagenet-baseline" --batch-size "128";
+```
 
 ### Visualize Features in 2D Space
 
