@@ -35,13 +35,15 @@ parser.add_argument('--seed', type=int, default=1234, help='Random seed for repr
 parser.add_argument('--print-freq', type=int, default=100, help='Print and log frequency')
 parser.add_argument('--test-freq', type=int, default=400, help='Test frequency')
 parser.add_argument('--save-path', type=str, default='./results/tmp', help='Save path')
+parser.add_argument('--gpu', action='store_true', help='Use GPU')
 args = parser.parse_args()
 args.num_classes = 100 if args.dataset == 'cifar100' else 10
 
 # Set random seed
 random.seed(args.seed)
 torch.manual_seed(args.seed)
-torch.cuda.manual_seed_all(args.seed)
+if args.gpu:
+    torch.cuda.manual_seed_all(args.seed)
 os.environ['PYTHONHASHSEED'] = str(args.seed)
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = True
@@ -69,11 +71,13 @@ train_loader, test_loader = dataloader(
 # Build model and optimizer
 logger.info("Building model and optimizer...")
 if args.architecture == "convlarge":
-    model = ConvLarge(num_classes=args.num_classes, stochastic=True).cuda()
+    model = ConvLarge(num_classes=args.num_classes, stochastic=True)
 elif args.architecture == "shakeshake":
-    model = shakeshake26(num_classes=args.num_classes).cuda()
+    model = shakeshake26(num_classes=args.num_classes)
 elif args.architecture == "wrn":
-    model = wideresnet28(num_classes=args.num_classes).cuda()
+    model = wideresnet28(num_classes=args.num_classes)
+if args.gpu:
+    model.cuda()
 optimizer = SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
 logger.info("Model:\n%s\nOptimizer:\n%s" % (str(model), str(optimizer)))
 
@@ -114,10 +118,11 @@ def main():
         data_start = time.time()
         label_img, label_gt, unlabel_img, unlabel_gt = next(train_loader)
 
-        label_img = label_img.cuda()
-        label_gt = label_gt.cuda()
-        unlabel_img = unlabel_img.cuda()
-        unlabel_gt = unlabel_gt.cuda()
+        if args.gpu:
+            label_img = label_img.cuda()
+            label_gt = label_gt.cuda()
+            unlabel_img = unlabel_img.cuda()
+            unlabel_gt = unlabel_gt.cuda()
         _label_gt = F.one_hot(label_gt, num_classes=args.num_classes).float()
         data_end = time.time()
 
@@ -145,22 +150,22 @@ def main():
 
             # Forward finite difference
             for p, g in zip(model.parameters(), dtheta):
-                p.data.add_(epsilon, g)            
+                p.data.add_(g, alpha=epsilon)
             unlabel_pred_pos = model(unlabel_img)
             # Backward finite difference
             for p, g in zip(model.parameters(), dtheta):
-                p.data.sub_(2.*epsilon, g)
+                p.data.sub_(g, alpha=2.*epsilon)
             unlabel_pred_neg = model(unlabel_img)
             # Resume original params
             for p, g in zip(model.parameters(), dtheta):
-                p.data.add_(epsilon, g)
+                p.data.add_(g, alpha=epsilon)
 
             # Compute (approximated) gradients w.r.t pseudo-gt of unlabel data
             unlabel_grad = F.softmax(unlabel_pred_pos, dim=1) - F.softmax(unlabel_pred_neg, dim=1)
             unlabel_grad.div_(epsilon)
 
             # Update and normalize pseudo-labels
-            unlabel_pseudo_gt.sub_(lr, unlabel_grad)
+            unlabel_pseudo_gt.sub_(unlabel_grad, alpha=lr)
             torch.relu_(unlabel_pseudo_gt)
             sums = torch.sum(unlabel_pseudo_gt, dim=1, keepdim=True)
             unlabel_pseudo_gt /= torch.where(sums == 0., torch.ones_like(sums), sums)
@@ -171,7 +176,9 @@ def main():
         if args.mix_up:
             # Adopt mix-up augmentation
             with torch.no_grad():
-                alpha = beta_distribution.sample((args.batch_size,)).cuda()
+                alpha = beta_distribution.sample((args.batch_size,))
+                if args.gpu:
+                    alpha = alpha.cuda()
                 _alpha = alpha.view(-1, 1, 1, 1)
                 interp_img = (label_img * _alpha + unlabel_img * (1. - _alpha)).detach()
                 interp_pseudo_gt = (_label_gt * alpha + unlabel_pseudo_gt * (1. - alpha)).detach()
@@ -255,8 +262,9 @@ def evaluate(test_loader, model):
     end = time.time()
     for i, (data, target) in enumerate(test_loader):
         # Load data
-        data = data.cuda()
-        target = target.cuda()
+        if args.gpu:
+            data = data.cuda()
+            target = target.cuda()
 
         # Compute output
         pred = model(data)

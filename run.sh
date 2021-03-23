@@ -6,13 +6,14 @@ CUDA_VISIBLE_DEVICES='0' python3 train_meta.py \
         --dataset "cifar100" \
         --num-label "10000" \
         -a "convlarge" \
-	--mix-up \
-	--alpha "1.0" \
+        --mix-up \
+        --alpha "1.0" \
         --save-path "/your/path/to/save/results" \
         --weight "1.0" \
-	--total-steps "400000" \
+        --total-steps "400000" \
         --milestones "[300000, 350000]" \
         --lr "0.1" \
-	--seed "7788" \
+        --seed "7788" \
         --warmup "4000" \
-        --weight-decay "1e-4";
+        --weight-decay "1e-4" \
+        --gpu;
