@@ -74,8 +74,6 @@ if args.architecture == "convlarge":
     model = ConvLarge(num_classes=args.num_classes, stochastic=True)
 elif args.architecture == "shakeshake":
     model = shakeshake26(num_classes=args.num_classes)
-elif args.architecture == "wrn":
-    model = wideresnet28(num_classes=args.num_classes)
 if args.gpu:
     model.cuda()
 optimizer = SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)

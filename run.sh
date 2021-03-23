@@ -1,5 +1,5 @@
 # Only label data (Baseline)
-# CUDA_VISIBLE_DEVICES=0 python3 train_baseline.py --save_path "/your/path/to/save/baseline/results"
+# CUDA_VISIBLE_DEVICES=0 python3 train_baseline.py --save_path "/your/path/to/save/baseline/results" --gpu;
 #
 # Meta-learning (Ours)
 CUDA_VISIBLE_DEVICES='0' python3 train_meta.py \

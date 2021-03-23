@@ -14,7 +14,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--dataset', type=str, default='cifar10', choices=['cifar10', 'cifar100', 'svhn'])
 parser.add_argument('--data-path', type=str, default='./data', help='Data path')
 parser.add_argument('--num-label', type=int, default=4000)
-parser.add_argument('-a', '--architecture', type=str, default='convlarge', choices=['convlarge', 'shakeshake', 'wrn'], help='Network architecture')
+parser.add_argument('-a', '--architecture', type=str, default='convlarge', choices=['convlarge', 'shakeshake'], help='Network architecture')
 parser.add_argument('--mix-up', action='store_true', help='Use mix-up augmentation')
 parser.add_argument('--alpha', type=float, default=1., help='Concentration parameter of Beta distribution')
 # Training setting
@@ -33,13 +33,15 @@ parser.add_argument('--seed', type=int, default=1234, help='Random seed for repr
 parser.add_argument('--print-freq', type=int, default=100, help='Print and log frequency')
 parser.add_argument('--test-freq', type=int, default=400, help='Test frequency')
 parser.add_argument('--save-path', type=str, default='./results/tmp', help='Save path')
+parser.add_argument('--gpu', action='store_true', help='Use GPU')
 args = parser.parse_args()
 args.num_classes = 100 if args.dataset == 'cifar100' else 10
 
 # Set random seed
 random.seed(args.seed)
 torch.manual_seed(args.seed)
-torch.cuda.manual_seed_all(args.seed)
+if args.gpu:
+    torch.cuda.manual_seed_all(args.seed)
 os.environ['PYTHONHASHSEED'] = str(args.seed)
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = True
@@ -67,9 +69,11 @@ train_loader, test_loader = dataloader(
 # Build model and optimizer
 logger.info("Building model and optimizer...")
 if args.architecture == "convlarge":
-    model = ConvLarge(num_classes=args.num_classes, stochastic=True).cuda()
+    model = ConvLarge(num_classes=args.num_classes, stochastic=True)
 elif args.architecture == "shakeshake":
-    model = shakeshake26(num_classes=args.num_classes).cuda()
+    model = shakeshake26(num_classes=args.num_classes)
+if args.gpu:
+    model.cuda()
 optimizer = SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
 logger.info("Model:\n%s\nOptimizer:\n%s" % (str(model), str(optimizer)))
 
@@ -115,11 +119,13 @@ def main():
         else:
             label_img, label_gt = next(train_loader)
 
-        label_img = label_img.cuda()
-        label_gt = label_gt.cuda()
+        if args.gpu:
+            label_img = label_img.cuda()
+            label_gt = label_gt.cuda()
         if args.mix_up:
-            unlabel_img = unlabel_img.cuda()
-            unlabel_gt = unlabel_gt.cuda()
+            if args.gpu:
+                unlabel_img = unlabel_img.cuda()
+                unlabel_gt = unlabel_gt.cuda()
             _label_gt = F.one_hot(label_gt, num_classes=args.num_classes).float()
         data_end = time.time()
 
@@ -134,7 +140,9 @@ def main():
             with torch.no_grad():
                 label_pred = model(label_img)
                 unlabel_pred = F.softmax(model(unlabel_img), dim=1) 
-                alpha = beta_distribution.sample((args.batch_size,)).cuda()
+                alpha = beta_distribution.sample((args.batch_size,))
+                if args.gpu:
+                    alpha = alpha.cuda()
                 _alpha = alpha.view(-1, 1, 1, 1)
                 interp_img = (label_img * _alpha + unlabel_img * (1. - _alpha)).detach()
                 interp_pseudo_gt = (_label_gt * alpha + unlabel_pred * (1. - alpha)).detach()
@@ -208,8 +216,9 @@ def evaluate(test_loader, model):
     end = time.time()
     for i, (data, target) in enumerate(test_loader):
         # Load data
-        data = data.cuda()
-        target = target.cuda()
+        if args.gpu:
+            data = data.cuda()
+            target = target.cuda()
 
         # Compute output
         pred = model(data)
