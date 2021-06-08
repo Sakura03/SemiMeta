@@ -12,12 +12,12 @@ This repository contains the official implementation of the `MetaSemi` algorithm
 
 we formulate SSL as a bi-level optimization problem, as shown in the following image:
 <figure>
-  <img src="images/formulation.png" alt="Trulli" width="360" height="120">
+  <img src="images/formulation.png" alt="bilevel optimization" width="360" height="120">
 </figure>
 
 Solving the exact optimization problem is computationally prohibitive, so we adopt an online approximation approach. The `MetaSemi` algorithm is summarized below:
 <figure>
-  <img src="images/algorithm.png" alt="Trulli" width="350" height="400">
+  <img src="images/algorithm.png" alt="meta-learning algorithm" width="350" height="400">
 </figure>
 
 Apart from meta-learning, we adopt several tricks to alleviate computation overhead and promote performance. Please refer to our [paper](https://arxiv.org/abs/2007.03966) for these details.
