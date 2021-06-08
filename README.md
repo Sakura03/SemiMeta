@@ -11,10 +11,14 @@ This repository contains the official implementation of the `MetaSemi` algorithm
 ## Algorithm
 
 we formulate SSL as a bi-level optimization problem, as shown in the following image:
-![Bi-level optimization.](images/formulation.png)
+<figure>
+  <img src="images/formulation.png" alt="Trulli" width="360" height="120">
+</figure>
 
 Solving the exact optimization problem is computationally prohibitive, so we adopt an online approximation approach. The `MetaSemi` algorithm is summarized below:
-![Meta-learning algorithm.](images/algorithm.png)
+<figure>
+  <img src="images/algorithm.png" alt="Trulli" width="350" height="400">
+</figure>
 
 Apart from meta-learning, we adopt several tricks to alleviate computation overhead and promote performance. Please refer to our [paper](https://arxiv.org/abs/2007.03966) for these details.
 
@@ -183,9 +187,15 @@ If you find our work intersting or helpful to your research, please consider cit
 
 ```
 @inproceedings{zhang2020semisupervised,
-  author    = {Xin-Yu Zhang and Taihong Xiao and Haolin Jia and Ming-Ming Cheng and Ming-Hsuan Yang},
-  title     = {{Semi-Supervised Learning with Meta-Gradient}},
-  booktitle = International Conference on Artificial Intelligence and Statistics (AISTATS),
-  year      = {2021}
+  title = 	 { Semi-Supervised Learning with Meta-Gradient },
+  author =       {Zhang, Xin-Yu and Xiao, Taihong and Jia, Haolin and Cheng, Ming-Ming and Yang, Ming-Hsuan},
+  booktitle = 	 {Proceedings of The 24th International Conference on Artificial Intelligence and Statistics},
+  pages = 	 {73--81},
+  year = 	 {2021},
+  editor = 	 {Banerjee, Arindam and Fukumizu, Kenji},
+  volume = 	 {130},
+  series = 	 {Proceedings of Machine Learning Research},
+  month = 	 {13--15 Apr},
+  publisher =    {PMLR}
 }
 ```
