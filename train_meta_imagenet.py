@@ -12,7 +12,7 @@ from nvidia.dali.plugin.pytorch import DALIClassificationIterator
 import torch.nn.functional as F
 from torch.distributions import Beta
 import torch.distributed as dist
-from apex.parallel import DistributedDataParallel as DDP
+from torch.nn.parallel import DistributedDataParallel as DDP
 warnings.filterwarnings("ignore", "(Possibly )?corrupt EXIF data", UserWarning)
 warnings.simplefilter('error')
 
@@ -122,8 +122,8 @@ def main():
     # Pytorch distributed setup
     args.gpu = args.local_rank % torch.cuda.device_count()
     torch.cuda.set_device(args.gpu)
-    torch.distributed.init_process_group(backend='nccl', init_method='env://')
-    args.world_size = torch.distributed.get_world_size()
+    dist.init_process_group(backend='nccl', init_method='env://')
+    args.world_size = dist.get_world_size()
 
     # Build DALI dataloader
     pipe = HybridTrainPipe(batch_size=args.batch_size, num_threads=args.workers,
@@ -148,11 +148,11 @@ def main():
 
     # Define model and optimizer
     model_name = "torchvision.models.%s(num_classes=%d)" % (args.arch, args.num_classes)
-    model = eval(model_name).cuda()
+    model = eval(model_name).to(torch.device("cuda", args.local_rank))
     if args.local_rank == 0:
         logger.info("Model details:")
         logger.info(model)
-    model = DDP(model, delay_allreduce=False)
+    model = DDP(model, device_ids=[args.local_rank])
     optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.wd)
     if args.local_rank == 0:
         logger.info("Optimizer details:")
