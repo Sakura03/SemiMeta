@@ -133,16 +133,16 @@ P.S. Please make sure that your disk have enough space available, since this ope
 Now, it's time to build the image recorder (See [reference](https://cv.gluon.ai/build/examples_datasets/recordio.html#sphx-glr-download-build-examples-datasets-recordio-py)). Run the following commands:
 ```
 # For labeled data
-python3 im2rec.py ./train_label /your-download-path/labeled/ --recursive --list --num-thread 8
-python3 im2rec.py ./train_label /your-download-path/labeled/ --recursive --pass-through --pack-label --num-thread 8
+python3 im2rec.py /your-download-path/train_label /your-download-path/labeled/ --recursive --list --num-thread 8
+python3 im2rec.py /your-download-path/train_label /your-download-path/labeled/ --recursive --pass-through --pack-label --num-thread 8
 
 # For unlabeled data
-python3 im2rec.py ./train_unlabel /your-download-path/unlabeled/ --recursive --list --num-thread 8
-python3 im2rec.py ./train_unlabel /your-download-path/unlabeled/ --recursive --pass-through --pack-label --num-thread 8
+python3 im2rec.py /your-download-path/train_unlabel /your-download-path/unlabeled/ --recursive --list --num-thread 8
+python3 im2rec.py /your-download-path/train_unlabel /your-download-path/unlabeled/ --recursive --pass-through --pack-label --num-thread 8
 
 # For validation data
-python im2rec.py ./val /your-download-path/val/ --recursive --list --num-thread 8
-python im2rec.py ./val /your-download-path/val/ --recursive --pass-through --pack-label --no-shuffle --num-thread 8
+python im2rec.py /your-download-path/val /your-download-path/val/ --recursive --list --num-thread 8
+python im2rec.py /your-download-path/val /your-download-path/val/ --recursive --pass-through --pack-label --no-shuffle --num-thread 8
 ```
 
 Again, the resulting `*.rec` files are still copies of ImageNet, so please make sure enough space is available. Finally, under `/your-download-path`, there should be nine files:
