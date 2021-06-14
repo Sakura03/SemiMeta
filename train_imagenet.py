@@ -222,6 +222,7 @@ def train(train_loader, model, optimizer, scheduler, epoch):
         loss = reduce_tensor(loss)
         top1 = reduce_tensor(top1)
         top5 = reduce_tensor(top5)
+        torch.cuda.empty_cache()
 
         # Update AverageMeter stats
         if args.local_rank == 0:
@@ -275,6 +276,7 @@ def validate(val_loader, model):
         loss = reduce_tensor(loss)
         acc1 = reduce_tensor(acc1)
         acc5 = reduce_tensor(acc5)
+        torch.cuda.empty_cache()
 
         # Update meters and log info
         if args.local_rank == 0:
