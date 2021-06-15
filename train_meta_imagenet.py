@@ -247,22 +247,22 @@ def train(label_provider, unlabel_loader, model, optimizer, scheduler, epoch):
 
             # Forward finite difference
             for p, g in zip(model.parameters(), dtheta):
-                p.data.add_(epsilon, g)            
+                p.data.add_(g, alpha=epsilon)
             unlabel_pred_pos = model(unlabel_img)
             # Backward finite difference
             for p, g in zip(model.parameters(), dtheta):
-                p.data.sub_(2.*epsilon, g)
+                p.data.sub_(g, alpha=2.*epsilon)
             unlabel_pred_neg = model(unlabel_img)
             # Resume original params
             for p, g in zip(model.parameters(), dtheta):
-                p.data.add_(epsilon, g)
+                p.data.add_(g, alpha=epsilon)
 
             # Compute (approximated) gradients w.r.t pseudo-gt of unlabel data
             unlabel_grad = F.softmax(unlabel_pred_pos, dim=1) - F.softmax(unlabel_pred_neg, dim=1)
             unlabel_grad.div_(epsilon)
 
             # Update and normalize pseudo-labels
-            unlabel_pseudo_gt.sub_(lr, unlabel_grad)
+            unlabel_pseudo_gt.sub_(unlabel_grad, alpha=lr)
             torch.relu_(unlabel_pseudo_gt)
             sums = torch.sum(unlabel_pseudo_gt, dim=1, keepdim=True)
             unlabel_pseudo_gt /= torch.where(sums == 0., torch.ones_like(sums), sums)
