@@ -12,12 +12,12 @@ This repository contains the official implementation of the `MetaSemi` algorithm
 
 we formulate SSL as a bi-level optimization problem, as shown in the following image:
 <figure>
-  <img src="images/formulation.png" alt="Trulli" width="360" height="120">
+  <img src="images/formulation.png" alt="bilevel optimization" width="360" height="120">
 </figure>
 
 Solving the exact optimization problem is computationally prohibitive, so we adopt an online approximation approach. The `MetaSemi` algorithm is summarized below:
 <figure>
-  <img src="images/algorithm.png" alt="Trulli" width="350" height="400">
+  <img src="images/algorithm.png" alt="meta-learning algorithm" width="350" height="400">
 </figure>
 
 Apart from meta-learning, we adopt several tricks to alleviate computation overhead and promote performance. Please refer to our [paper](https://arxiv.org/abs/2007.03966) for these details.
@@ -30,7 +30,7 @@ Please make sure the following packages are installed in your environment:
 
 | **Package**    | **Version**  |
 |----------------|--------------|
-| python         |  >=3.5       |
+| python         |  >=3.6       |
 | pytorch        |  >=1.2       |
 | tensorboardX   |  >=2.0       |
 
@@ -79,9 +79,12 @@ Our performance on ImageNet dataset is as follows:
 
 #### Prepare the ImageNet Recoder
 
-Our ImageNet experiment is based on the [NVIDIA-DALI](https://docs.nvidia.com/deeplearning/dali/user-guide/docs/) pipeline. Before running the codes, we need to prepare the ImageNet recorder.
+Our ImageNet experiment is based on the [NVIDIA-DALI](https://docs.nvidia.com/deeplearning/dali/user-guide/docs/) pipeline. Please use the following script to install DALI:
+```
+pip3 install --extra-index-url https://developer.download.nvidia.com/compute/redist/cuda/10.0 nvidia-dali==0.13.0
+```
 
-You have to download the original ImageNet dataset on your server. Please refer to its official [instructions](http://image-net.org/download). The downloaded files should be originzed in the following structure:
+Before running the codes, we need to prepare the ImageNet recorder. You have to download the original ImageNet dataset on your server. Please refer to its official [instructions](http://image-net.org/download). The downloaded files should be originzed in the following structure:
 ```
 /your-download-path
 ├── train
@@ -113,7 +116,7 @@ You have to download the original ImageNet dataset on your server. Please refer 
 Then, run the following commands to splits the ImageNet into labeled/unlabeled data:
 ```
 cd imagenet;
-python3 split_imagenet.py --data-path "/your-download-path";
+python3 imagenet/split_imagenet.py --data-path "/your-download-path";
 ```
 
 After this, there will be four sub-directories under `/your-download-path`:
@@ -125,21 +128,21 @@ After this, there will be four sub-directories under `/your-download-path`:
 ├── unlabeled
 ```
 
-P.S. Please make sure that your disk have enough space available, since this operation will copy the whole ImageNet (>=150G will be enough). Besides, absolution path is preferred in the above arguments. Running these commands may take a while.
+P.S. Please make sure that your disk have enough space available, since this operation will copy the whole ImageNet (>=150G will be enough). Besides, absolute path is preferred in the above arguments. Running these commands may take a while.
 
 Now, it's time to build the image recorder (See [reference](https://cv.gluon.ai/build/examples_datasets/recordio.html#sphx-glr-download-build-examples-datasets-recordio-py)). Run the following commands:
 ```
 # For labeled data
-python3 im2rec.py ./train_label /your-download-path/labeled/ --recursive --list --num-thread 8
-python3 im2rec.py ./train_label /your-download-path/labeled/ --recursive --pass-through --pack-label --num-thread 8
+python3 imagenet/im2rec.py /your-download-path/train_label /your-download-path/labeled/ --recursive --list --num-thread 8
+python3 imagenet/im2rec.py /your-download-path/train_label /your-download-path/labeled/ --recursive --pass-through --pack-label --num-thread 8
 
 # For unlabeled data
-python3 im2rec.py ./train_unlabel /your-download-path/unlabeled/ --recursive --list --num-thread 8
-python3 im2rec.py ./train_unlabel /your-download-path/unlabeled/ --recursive --pass-through --pack-label --num-thread 8
+python3 imagenet/im2rec.py /your-download-path/train_unlabel /your-download-path/unlabeled/ --recursive --list --num-thread 8
+python3 imagenet/im2rec.py /your-download-path/train_unlabel /your-download-path/unlabeled/ --recursive --pass-through --pack-label --num-thread 8
 
 # For validation data
-python im2rec.py ./val /your-download-path/val/ --recursive --list --num-thread 8
-python im2rec.py ./val /your-download-path/val/ --recursive --pass-through --pack-label --no-shuffle --num-thread 8
+python3 imagenet/im2rec.py /your-download-path/val /your-download-path/val/ --recursive --list --num-thread 8
+python3 imagenet/im2rec.py /your-download-path/val /your-download-path/val/ --recursive --pass-through --pack-label --no-shuffle --num-thread 8
 ```
 
 Again, the resulting `*.rec` files are still copies of ImageNet, so please make sure enough space is available. Finally, under `/your-download-path`, there should be nine files:
