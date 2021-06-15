@@ -131,10 +131,11 @@ def main():
     # Define model and optimizer
     model_name = "torchvision.models.%s(num_classes=%d)" % (args.arch, args.num_classes)
     model = eval(model_name).to(torch.device("cuda", args.local_rank))
+    model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
     if args.local_rank == 0:
         logger.info("Model details:")
         logger.info(model)
-    model = DDP(model, device_ids=[args.local_rank])
+    model = DDP(model, device_ids=[args.local_rank], output_device=args.local_rank)
     optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.wd)
     if args.local_rank == 0:
         logger.info("Optimizer details:")
